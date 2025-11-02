@@ -30,6 +30,7 @@ async function run() {
     const smartDB = client.db("smartDB");
     const productsCollection = smartDB.collection("products");
     const bidsCollection = smartDB.collection("bids");
+    const usersCollection = smartDB.collection("users");
 
     // Products Related Api Database Connection -------------->
     app.get("/products", async (req, res) => {
@@ -69,6 +70,16 @@ async function run() {
       res.send(result);
     });
 
+    // Latest Products Related Api Database Connection -------------->
+    app.get("/latest-products", async (req, res) => {
+      const cursor = productsCollection
+        .find()
+        .sort({ created_at: -1 })
+        .limit(6);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     // Bids Related Api Database Connection -------------->
     app.get("/bids", async (req, res) => {
       const email = req.query.email;
@@ -92,6 +103,20 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await bidsCollection.deleteOne(query);
       res.send(result);
+    });
+
+    // Users Related Api Database Collection ---------------->
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      const email = req.body.email;
+      const query = { email: email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        res.send({ message: "User already exist. Please Login" });
+      } else {
+        const result = await usersCollection.insertOne(newUser);
+        res.send(result);
+      }
     });
 
     await client.db("admin").command({ ping: 1 });
