@@ -5,10 +5,41 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 3000;
 const app = express();
 
+// Firebase Admin ------------------>
+const admin = require("firebase-admin");
+const serviceAccount = require("./smart-deals-firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 // Middleware ----------------------->
 app.use(cors());
 app.use(express.json());
+const logger = (req, res, next) => {
+  console.log("Logging Information");
+  next();
+};
+const verifyFireBaseToken = async (req, res, next) => {
+  console.log("verified token", req.headers.authorization);
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  }
+  const token = req.headers.authorization.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  }
 
+  try {
+    const userInfo = await admin.auth().verifyIdToken(token);
+    console.log("after user token validation", userInfo);
+    next();
+  } catch (error) {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  }
+};
+
+// ------------------------------>
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.qx9mzcm.mongodb.net/?appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -81,7 +112,7 @@ async function run() {
     });
 
     // Bids Related Api Database Connection -------------->
-    app.get("/bids", async (req, res) => {
+    app.get("/bids", logger, verifyFireBaseToken, async (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
