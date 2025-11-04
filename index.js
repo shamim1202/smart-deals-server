@@ -22,19 +22,20 @@ const logger = (req, res, next) => {
   next();
 };
 const verifyFireBaseToken = async (req, res, next) => {
-  console.log("verified token", req.headers.authorization);
-  if (!req.headers.authorization) {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
     return res.status(401).send({ message: "Unauthorized Access" });
   }
-  const token = req.headers.authorization.split(" ")[1];
+  const token = authorization.split(" ")[1];
   if (!token) {
     return res.status(401).send({ message: "Unauthorized Access" });
   }
 
+  // Verify token --------------------------->
   try {
-    const userInfo = await admin.auth().verifyIdToken(token);
-    console.log("after user token validation", userInfo);
-    req.token_email = userInfo.email;
+    const decoded = await admin.auth().verifyIdToken(token);
+    console.log("after user token validation", decoded);
+    req.token_email = decoded.email;
     next();
   } catch (error) {
     return res.status(401).send({ message: "Unauthorized Access" });
