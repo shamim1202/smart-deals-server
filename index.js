@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 3000;
@@ -33,6 +34,7 @@ const verifyFireBaseToken = async (req, res, next) => {
   try {
     const userInfo = await admin.auth().verifyIdToken(token);
     console.log("after user token validation", userInfo);
+    req.token_email = userInfo.email;
     next();
   } catch (error) {
     return res.status(401).send({ message: "Unauthorized Access" });
@@ -62,6 +64,15 @@ async function run() {
     const productsCollection = smartDB.collection("products");
     const bidsCollection = smartDB.collection("bids");
     const usersCollection = smartDB.collection("users");
+
+    // JWT Related Token ---------------------->
+    app.post("/getToken", (req, res) => {
+      const loggedUser = req.body;
+      const token = jwt.sign(loggedUser, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token: token });
+    });
 
     // Products Related Api Database Connection -------------->
     app.get("/products", async (req, res) => {
@@ -116,6 +127,9 @@ async function run() {
       const email = req.query.email;
       const query = {};
       if (email) {
+        if (email !== req.token_email) {
+          return res.status(403).send({ message: "Forbidden Access" });
+        }
         query.buyer_email = email;
       }
       const cursor = bidsCollection.find(query);
@@ -123,13 +137,17 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/products/bids/:productId", async (req, res) => {
-      const productId = req.params.productId;
-      const query = { product: productId };
-      const cursor = await bidsCollection.find(query).sort({ bid_price: -1 });
-      const result = await cursor.toArray();
-      res.send(result);
-    });
+    app.get(
+      "/products/bids/:productId",
+      verifyFireBaseToken,
+      async (req, res) => {
+        const productId = req.params.productId;
+        const query = { product: productId };
+        const cursor = await bidsCollection.find(query).sort({ bid_price: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      }
+    );
 
     app.post("/bids", async (req, res) => {
       const newBid = req.body;
