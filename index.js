@@ -9,7 +9,6 @@ const app = express();
 // Firebase Admin ------------------>
 const admin = require("firebase-admin");
 const serviceAccount = require("./smart-deals-firebase-adminsdk.json");
-
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -17,10 +16,12 @@ admin.initializeApp({
 // Middleware ----------------------->
 app.use(cors());
 app.use(express.json());
+
 const logger = (req, res, next) => {
   console.log("Logging Information");
   next();
 };
+
 const verifyFireBaseToken = async (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
@@ -32,6 +33,7 @@ const verifyFireBaseToken = async (req, res, next) => {
   }
 
   // Verify token --------------------------->
+
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     console.log("after user token validation", decoded);
@@ -89,7 +91,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/product", async (req, res) => {
+    app.post("/product", verifyFireBaseToken, async (req, res) => {
       const newProduct = req.body;
       const result = await productsCollection.insertOne(newProduct);
       res.send(result);
@@ -124,7 +126,7 @@ async function run() {
     });
 
     // Bids Related Api Database Connection -------------->
-    app.get("/bids", logger, verifyFireBaseToken, async (req, res) => {
+    app.get("/bids", verifyFireBaseToken, async (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
